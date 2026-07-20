@@ -1,4 +1,4 @@
-name: Build Quota Only
+name: Test1 - enableDyadPro only
 on: workflow_dispatch
 jobs:
   build:
@@ -19,9 +19,11 @@ jobs:
           echo hi > node_modules/@vscode/ripgrep/bin/rg && chmod +x node_modules/@vscode/ripgrep/bin/rg
           echo hi > node_modules/dugite/git/bin/git && chmod +x node_modules/dugite/git/bin/git
           echo hi > node_modules/dugite/git/bin/scalar && chmod +x node_modules/dugite/git/bin/scalar
-      - name: Patch quota only
+      - name: Only quota + enableDyadPro
         working-directory: ./s
-        run: sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+        run: |
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          sed -i '' 's/experiments: {},/experiments: {},\n  enableDyadPro: true,/' src/main/settings.ts
       - name: Build x64
         working-directory: ./s
         run: npm run make -- --arch=x64
@@ -30,6 +32,6 @@ jobs:
           E2E_TEST_BUILD: "true"
       - uses: actions/upload-artifact@v4
         with:
-          name: dyad-quota-only
+          name: test1
           path: s/out/make/**/*.zip
           if-no-files-found: warn
