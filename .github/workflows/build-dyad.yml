@@ -17,26 +17,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-
-      - name: Debug - check cloned content
-        run: |
-          ls -la dyad-src/
-          ls -la dyad-src/src/lib/free_agent_quota_limit.ts 2>/dev/null || echo "FILE NOT FOUND"
-          node --version
-          npm --version
+          node-version: 24
 
       - name: Install dependencies
         working-directory: ./dyad-src
-        run: |
-          npm install 2>&1 || echo "NPM INSTALL FAILED WITH EXIT CODE $?"
+        run: npm install
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         working-directory: ./dyad-src
         run: |
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
-          echo "Patched limit:"
-          cat src/lib/free_agent_quota_limit.ts
+          echo "Patched: FREE_AGENT_QUOTA_LIMIT = 99999"
 
       - name: Build Dyad (DMG)
         working-directory: ./dyad-src
