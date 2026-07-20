@@ -1,5 +1,10 @@
 name: Build Pro
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Build reason'
+        default: 'manual'
 jobs:
   build:
     runs-on: macos-latest
