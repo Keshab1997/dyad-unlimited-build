@@ -1,11 +1,13 @@
 name: Build Dyad (Unlimited Agent + Pro) [Intel x64]
 
+# Patched Dyad build
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-# Patched Dyad build
+on: macos-latest
 
     steps:
       - name: Checkout this repo
@@ -17,7 +19,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-versi# Patched Dyad build
+on: 24
 
       - name: Install dependencies (no scripts)
         working-directory: ./dyad-src
