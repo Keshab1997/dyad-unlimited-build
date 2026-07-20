@@ -1,0 +1,50 @@
+name: Build Dyad Pro
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone dyad
+        run: git clone https://github.com/dyad-sh/dyad.git dyad-src
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install deps
+        working-directory: ./dyad-src
+        run: npm install --ignore-scripts
+      - name: Setup binary dirs
+        working-directory: ./dyad-src
+        run: |
+          mkdir -p node_modules/@vscode/ripgrep/bin node_modules/dugite/git/bin
+          echo '#!/bin/bash' > node_modules/@vscode/ripgrep/bin/rg && chmod +x node_modules/@vscode/ripgrep/bin/rg
+          echo '#!/bin/bash' > node_modules/dugite/git/bin/git && chmod +x node_modules/dugite/git/bin/git
+          echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar && chmod +x node_modules/dugite/git/bin/scalar
+      - name: Apply patches
+        working-directory: ./dyad-src
+        run: |
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          python3 -c "
+import re
+with open('src/main/settings.ts') as f:
+    content = f.read()
+content = content.replace('providerSettings: {},', 'providerSettings: { auto: { apiKey: { value: "patched" } } },', 1)
+content = content.replace('experiments: {},', 'experiments: {},
+  enableDyadPro: true,', 1)
+content = content.replace('enableProSmartFilesContextMode: true,', 'enableProSmartFilesContextMode: true,
+  enableProWebSearch: true,', 1)
+with open('src/main/settings.ts', 'w') as f:
+    f.write(content)
+print('Patched')
+"
+      - name: Build Intel x64
+        working-directory: ./dyad-src
+        run: npm run make -- --arch=x64
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          E2E_TEST_BUILD: "true"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dyad-pro-intel
+          path: dyad-src/out/make/**/*.zip
+          if-no-files-found: warn
