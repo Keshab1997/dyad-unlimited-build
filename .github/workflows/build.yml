@@ -1,13 +1,11 @@
 name: Build Dyad (Unlimited Agent + Pro) [Intel x64]
 
-# Patched Dyad build
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-# Patched Dyad build
-on: macos-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout this repo
@@ -19,8 +17,7 @@ on: macos-latest
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-versi# Patched Dyad build
-on: 24
+          node-version: 24
 
       - name: Install dependencies (no scripts)
         working-directory: ./dyad-src
@@ -38,32 +35,20 @@ on: 24
           echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
           chmod +x node_modules/dugite/git/bin/scalar
 
-      - name: Apply patches (safe approach - only defaults)
+      - name: Apply patches (safe - only defaults changes)
         working-directory: ./dyad-src
         run: |
-          # 1. Unlimited Agent Quota
+          # Unlimited Agent Quota
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
-          echo "✅ FREE_AGENT_QUOTA_LIMIT = 99999"
 
-          # 2. Enable Dyad Pro by default + set dummy API key
-          #    (so isDyadProEnabled returns true naturally)
+          # Enable Dyad Pro by default + dummy API key
           sed -i '' 's/providerSettings: {},/providerSettings: { auto: { apiKey: { value: "patched" } } },/' src/main/settings.ts
+
+          # Enable Dyad Pro + Pro features in defaults  
           sed -i '' 's/experiments: {},/experiments: {},
   enableDyadPro: true,/' src/main/settings.ts
-          
-          # 3. Enable Pro features by default
           sed -i '' 's/enableProSmartFilesContextMode: true,/enableProSmartFilesContextMode: true,
   enableProWebSearch: true,/' src/main/settings.ts
-          
-          echo "✅ enableDyadPro, dummy API key, Pro toggles set in defaults"
-
-      - name: Verify patches
-        working-directory: ./dyad-src
-        run: |
-          echo "=== FREE_AGENT_QUOTA_LIMIT ==="
-          grep "FREE_AGENT_QUOTA_LIMIT" src/lib/free_agent_quota_limit.ts
-          echo "=== Settings defaults ==="
-          sed -n '46,80p' src/main/settings.ts
 
       - name: Build Dyad (Intel x64)
         working-directory: ./dyad-src
