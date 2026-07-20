@@ -26,14 +26,13 @@ jobs:
       - name: Pre-create binary dirs for packaging
         working-directory: ./dyad-src
         run: |
-          # Ripgrep binary dir (app can't download it, create placeholder)
+          # Ripgrep binary dir
           mkdir -p node_modules/@vscode/ripgrep/bin
-          # Create a dummy rg binary so packaging doesn't fail
           echo '#!/bin/bash' > node_modules/@vscode/ripgrep/bin/rg
           echo 'exit 0' >> node_modules/@vscode/ripgrep/bin/rg
           chmod +x node_modules/@vscode/ripgrep/bin/rg
-          echo "✅ Created ripgrep placeholder"
-          
+          echo "ripgrep placeholder created"
+
           # Dugite git binary dir
           mkdir -p node_modules/dugite/git/bin
           echo '#!/bin/bash' > node_modules/dugite/git/bin/git
@@ -42,7 +41,7 @@ jobs:
           echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
           echo 'exit 0' >> node_modules/dugite/git/bin/scalar
           chmod +x node_modules/dugite/git/bin/scalar
-          echo "✅ Created dugite git placeholder"
+          echo "dugite placeholder created"
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         working-directory: ./dyad-src
@@ -50,16 +49,20 @@ jobs:
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
           echo "Patched: FREE_AGENT_QUOTA_LIMIT = 99999"
 
-      - name: Build Dyad (DMG)
+      - name: Build Dyad (ZIP)
         working-directory: ./dyad-src
         run: npm run make
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
           E2E_TEST_BUILD: "true"
 
-      - name: Upload DMG artifact
+      - name: List output files
+        working-directory: ./dyad-src
+        run: find out/ -type f -name "*.zip" -o -name "*.dmg" 2>/dev/null || echo "No zip/dmg found"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dyad-unlimited-agent-dmg
-          path: dyad-src/out/make/*.dmg
-          if-no-files-found: error
+          name: dyad-unlimited-agent
+          path: dyad-src/out/make/**/*.zip
+          if-no-files-found: warn
