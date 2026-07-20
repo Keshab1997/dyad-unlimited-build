@@ -1,7 +1,7 @@
 name: Build Dyad (Unlimited Agent)
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,19 +19,16 @@ jobs:
         with:
           node-version: 22
 
+      - name: Git config to fix SSH deps
+        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+
       - name: Install dependencies
-        run: |
-          # Fix SSH git dependencies (electron/node-gyp) for GitHub Actions
-          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-          npm install
+        run: npm install --ignore-scripts
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
-        run: |
-          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
-          echo "✅ Patched free_agent_quota_limit.ts:"
-          cat src/lib/free_agent_quota_limit.ts
+        run: sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
 
-      - name: Build Dyad (DMG)
+      - name: Build Dyad
         run: npm run make
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
