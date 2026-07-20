@@ -19,9 +19,17 @@ jobs:
         with:
           node-version: 22
 
+      - name: Debug - check cloned content
+        run: |
+          ls -la dyad-src/
+          ls -la dyad-src/src/lib/free_agent_quota_limit.ts 2>/dev/null || echo "FILE NOT FOUND"
+          node --version
+          npm --version
+
       - name: Install dependencies
         working-directory: ./dyad-src
-        run: npm install 2>&1
+        run: |
+          npm install 2>&1 || echo "NPM INSTALL FAILED WITH EXIT CODE $?"
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         working-directory: ./dyad-src
