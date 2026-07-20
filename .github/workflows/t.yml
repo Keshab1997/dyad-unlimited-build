@@ -5,4 +5,8 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo hello
+      - run: git clone https://github.com/dyad-sh/dyad.git s
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: cd s && echo test
