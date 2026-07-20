@@ -1,0 +1,49 @@
+name: Pro Build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone
+        run: git clone https://github.com/dyad-sh/dyad.git s
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install
+        working-directory: ./s
+        run: npm install --ignore-scripts
+      - name: Dirs
+        working-directory: ./s
+        run: |
+          mkdir -p node_modules/@vscode/ripgrep/bin node_modules/dugite/git/bin
+          echo hi > node_modules/@vscode/ripgrep/bin/rg
+          chmod +x node_modules/@vscode/ripgrep/bin/rg
+          echo hi > node_modules/dugite/git/bin/git
+          chmod +x node_modules/dugite/git/bin/git
+          echo hi > node_modules/dugite/git/bin/scalar
+          chmod +x node_modules/dugite/git/bin/scalar
+      - name: Patch
+        working-directory: ./s
+        run: |
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          python3 -c "
+c = open('src/main/settings.ts').read()
+c = c.replace('providerSettings: {},', 'providerSettings: { auto: { apiKey: { value: \"patched\" } } },', 1)
+c = c.replace('experiments: {},', 'experiments: {},' + chr(10) + '  enableDyadPro: true,', 1)
+c = c.replace('enableProSmartFilesContextMode: true,', 'enableProSmartFilesContextMode: true,' + chr(10) + '  enableProWebSearch: true,', 1)
+open('src/main/settings.ts','w').write(c)
+print('ok')
+"
+      - name: Build x64
+        working-directory: ./s
+        run: npm run make -- --arch=x64
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          E2E_TEST_BUILD: "true"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dmg
+          path: s/out/make/**/*.zip
+          if-no-files-found: warn
