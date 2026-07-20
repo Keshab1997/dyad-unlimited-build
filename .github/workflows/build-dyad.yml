@@ -20,7 +20,10 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          # Fix SSH git dependencies (electron/node-gyp) for GitHub Actions
+          git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
+          npm install
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         run: |
