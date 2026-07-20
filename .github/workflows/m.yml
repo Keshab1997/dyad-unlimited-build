@@ -1,8 +1,7 @@
-name: Build Pro
-on:
-  workflow_dispatch:
+name: M
+on: workflow_dispatch
 jobs:
-  build:
+  b:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,10 +10,7 @@ jobs:
         with:
           node-version: 24
       - run: cd s && npm install --ignore-scripts
-      - run: cd s && mkdir -p node_modules/@vscode/ripgrep/bin node_modules/dugite/git/bin
-      - run: cd s && echo hi > node_modules/@vscode/ripgrep/bin/rg && chmod +x node_modules/@vscode/ripgrep/bin/rg
-      - run: cd s && echo hi > node_modules/dugite/git/bin/git && chmod +x node_modules/dugite/git/bin/git
-      - run: cd s && echo hi > node_modules/dugite/git/bin/scalar && chmod +x node_modules/dugite/git/bin/scalar
+      - run: cd s && mkdir -p node_modules/@vscode/ripgrep/bin node_modules/dugite/git/bin && echo hi > node_modules/@vscode/ripgrep/bin/rg && chmod +x node_modules/@vscode/ripgrep/bin/rg && echo hi > node_modules/dugite/git/bin/git && chmod +x node_modules/dugite/git/bin/git && echo hi > node_modules/dugite/git/bin/scalar && chmod +x node_modules/dugite/git/bin/scalar
       - run: cd s && sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
       - run: cd s && python3 -c "c=open('src/main/settings.ts').read();c=c.replace('providerSettings: {},','providerSettings: { auto: { apiKey: { value: \"patched\" } } },',1);c=c.replace('experiments: {},','experiments: {},\n  enableDyadPro: true,',1);c=c.replace('enableProSmartFilesContextMode: true,','enableProSmartFilesContextMode: true,\n  enableProWebSearch: true,',1);open('src/main/settings.ts','w').write(c);print('ok')"
       - run: cd s && npm run make -- --arch=x64
