@@ -35,9 +35,25 @@ jobs:
           echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
           chmod +x node_modules/dugite/git/bin/scalar
 
-      - name: Apply FREE_AGENT_QUOTA_LIMIT patch
+      - name: Apply all patches (Unlimited Agent + Full Pro)
         working-directory: ./dyad-src
-        run: sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+        run: |
+          # 1. Unlimited Agent Quota
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          echo "✅ FREE_AGENT_QUOTA_LIMIT = 99999"
+
+          # 2. Always return true for Pro checks
+          sed -i '' 's/export function isDyadProEnabled(settings: UserSettings): boolean {/export function isDyadProEnabled(_settings: UserSettings): boolean {/' src/lib/schemas.ts
+          sed -i '' 's/return settings.enableDyadPro === true && hasDyadProKey(settings);/return true; \/\/ Patched: unlimited Pro features/' src/lib/schemas.ts
+          sed -i '' 's/export function hasDyadProKey(settings: UserSettings): boolean {/export function hasDyadProKey(_settings: UserSettings): boolean {/' src/lib/schemas.ts
+          sed -i '' 's/return !!settings.providerSettings?.auto\.apiKey?.value;/return true; \/\/ Patched: always has Pro key/' src/lib/schemas.ts
+          echo "✅ isDyadProEnabled & hasDyadProKey → always return true"
+
+          # 3. Enable Dyad Pro by default
+          sed -i '' 's/experiments: {},/experiments: {},\n  enableDyadPro: true,/' src/main/settings.ts
+          grep -q "enableProWebSearch: true" src/main/settings.ts || \
+            sed -i '' 's/enableProSmartFilesContextMode: true,/enableProSmartFilesContextMode: true,\n  enableProWebSearch: true,/' src/main/settings.ts
+          echo "✅ enableDyadPro, enableProWebSearch = true in defaults"
 
       - name: Build Dyad (Intel x64)
         working-directory: ./dyad-src
