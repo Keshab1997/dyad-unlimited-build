@@ -10,5 +10,4 @@ jobs:
         with:
           node-version: 24
       - run: cd s && npm install --ignore-scripts
-      - run: cd s && sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
-      - run: cd s && python3 -c "print('test')"
+      - run: cd s && python3 -c "c=open('src/main/settings.ts').read();c=c.replace('providerSettings: {},','providerSettings: { auto: { apiKey: { value: \"patched\" } } },',1);open('src/main/settings.ts','w').write(c);print('ok')"
