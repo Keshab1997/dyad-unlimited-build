@@ -1,4 +1,4 @@
-name: Test1 - enableDyadPro only
+name: Test2 - enableDyadPro + apiKey
 on: workflow_dispatch
 jobs:
   build:
@@ -19,11 +19,17 @@ jobs:
           echo hi > node_modules/@vscode/ripgrep/bin/rg && chmod +x node_modules/@vscode/ripgrep/bin/rg
           echo hi > node_modules/dugite/git/bin/git && chmod +x node_modules/dugite/git/bin/git
           echo hi > node_modules/dugite/git/bin/scalar && chmod +x node_modules/dugite/git/bin/scalar
-      - name: Only quota + enableDyadPro
+      - name: Patch
         working-directory: ./s
         run: |
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
-          sed -i '' 's/experiments: {},/experiments: {},\n  enableDyadPro: true,/' src/main/settings.ts
+          python3 << 'PYEOF'
+          c = open('src/main/settings.ts').read()
+          c = c.replace('experiments: {},', 'experiments: {},\n  enableDyadPro: true,', 1)
+          c = c.replace('providerSettings: {},', 'providerSettings: { auto: { apiKey: { value: "patched" } } },', 1)
+          open('src/main/settings.ts', 'w').write(c)
+          print('ok')
+          PYEOF
       - name: Build x64
         working-directory: ./s
         run: npm run make -- --arch=x64
@@ -32,6 +38,6 @@ jobs:
           E2E_TEST_BUILD: "true"
       - uses: actions/upload-artifact@v4
         with:
-          name: test1
+          name: test2-enableDyadPro-apikey
           path: s/out/make/**/*.zip
           if-no-files-found: warn
