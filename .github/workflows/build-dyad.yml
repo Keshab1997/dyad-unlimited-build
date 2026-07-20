@@ -8,27 +8,30 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout Dyad source
+      - name: Checkout this repo (contains workflow)
         uses: actions/checkout@v4
-        with:
-          repository: dyad-sh/dyad
-          ref: main
+
+      - name: Clone Dyad source
+        run: git clone https://github.com/dyad-sh/dyad.git dyad-src
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Git config to fix SSH deps
-        run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
-
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        working-directory: ./dyad-src
+        run: npm install 2>&1
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
-        run: sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+        working-directory: ./dyad-src
+        run: |
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          echo "Patched limit:"
+          cat src/lib/free_agent_quota_limit.ts
 
-      - name: Build Dyad
+      - name: Build Dyad (DMG)
+        working-directory: ./dyad-src
         run: npm run make
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
@@ -37,5 +40,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dyad-unlimited-agent-dmg
-          path: out/make/*.dmg
+          path: dyad-src/out/make/*.dmg
           if-no-files-found: error
