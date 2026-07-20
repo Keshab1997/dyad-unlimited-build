@@ -19,15 +19,25 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies (skip scripts)
+      - name: Install dependencies (with retry)
         working-directory: ./dyad-src
-        run: npm install --ignore-scripts
+        run: |
+          for i in 1 2 3; do
+            echo "=== npm install attempt $i ==="
+            npm install --prefer-offline && break
+            echo "Attempt $i failed, retrying in 5 seconds..."
+            sleep 5
+          done
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         working-directory: ./dyad-src
         run: |
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
           echo "Patched: FREE_AGENT_QUOTA_LIMIT = 99999"
+
+      - name: Verify dugite git binary
+        working-directory: ./dyad-src
+        run: ls -la node_modules/dugite/git/bin/ 2>/dev/null && echo "✅ dugite git binary present" || echo "⚠️ dugite git binary missing"
 
       - name: Build Dyad (DMG)
         working-directory: ./dyad-src
