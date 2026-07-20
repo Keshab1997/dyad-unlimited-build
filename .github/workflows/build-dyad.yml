@@ -1,11 +1,11 @@
-name: Build Dyad (Unlimited Agent)
+name: Build Dyad (Unlimited Agent) [Intel x64]
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-13
 
     steps:
       - name: Checkout this repo (contains workflow)
@@ -49,7 +49,7 @@ jobs:
           sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
           echo "Patched: FREE_AGENT_QUOTA_LIMIT = 99999"
 
-      - name: Build Dyad (ZIP)
+      - name: Build Dyad (ZIP for Intel)
         working-directory: ./dyad-src
         run: npm run make
         env:
@@ -63,6 +63,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dyad-unlimited-agent
+          name: dyad-unlimited-agent-intel
           path: dyad-src/out/make/**/*.zip
           if-no-files-found: warn
