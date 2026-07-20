@@ -19,9 +19,9 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies
+      - name: Install dependencies (skip scripts)
         working-directory: ./dyad-src
-        run: npm install
+        run: npm install --ignore-scripts
 
       - name: Apply FREE_AGENT_QUOTA_LIMIT patch
         working-directory: ./dyad-src
