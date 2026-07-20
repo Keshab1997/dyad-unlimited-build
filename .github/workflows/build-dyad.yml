@@ -1,0 +1,41 @@
+name: Build Dyad (Unlimited Agent)
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Dyad source
+        uses: actions/checkout@v4
+        with:
+          repository: dyad-sh/dyad
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Apply FREE_AGENT_QUOTA_LIMIT patch
+        run: |
+          sed -i '' 's/FREE_AGENT_QUOTA_LIMIT = 10/FREE_AGENT_QUOTA_LIMIT = 99999/' src/lib/free_agent_quota_limit.ts
+          echo "✅ Patched free_agent_quota_limit.ts:"
+          cat src/lib/free_agent_quota_limit.ts
+
+      - name: Build Dyad (DMG)
+        run: npm run make
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dyad-unlimited-agent-dmg
+          path: out/make/*.dmg
+          if-no-files-found: error
