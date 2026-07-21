@@ -1,0 +1,213 @@
+name: Build Dyad (Full Pro + Unlimited Agent) [Intel x64]
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Clone Dyad source
+        run: git clone https://github.com/dyad-sh/dyad.git dyad-src
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies (no scripts)
+        working-directory: ./dyad-src
+        run: npm install --ignore-scripts
+
+      - name: Pre-create binary dirs
+        working-directory: ./dyad-src
+        run: |
+          mkdir -p node_modules/@vscode/ripgrep/bin
+          echo '#!/bin/bash' > node_modules/@vscode/ripgrep/bin/rg
+          chmod +x node_modules/@vscode/ripgrep/bin/rg
+          mkdir -p node_modules/dugite/git/bin
+          echo '#!/bin/bash' > node_modules/dugite/git/bin/git
+          chmod +x node_modules/dugite/git/bin/git
+          echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
+          chmod +x node_modules/dugite/git/bin/scalar
+
+      - name: Apply all patches (Unlimited Agent + Full Pro)
+        working-directory: ./dyad-src
+        run: |
+          python3 << 'PYEOF'
+          import re
+
+          # === PATCH 1: Unlimited Agent Quota ===
+          with open('src/lib/free_agent_quota_limit.ts') as f:
+              content = f.read()
+          content = content.replace('FREE_AGENT_QUOTA_LIMIT = 10', 'FREE_AGENT_QUOTA_LIMIT = 99999')
+          with open('src/lib/free_agent_quota_limit.ts', 'w') as f:
+              f.write(content)
+          print("✅ FREE_AGENT_QUOTA_LIMIT = 99999")
+
+          # === PATCH 2: isDyadProEnabled & hasDyadProKey → always true ===
+          with open('src/lib/schemas.ts') as f:
+              content = f.read()
+          content = re.sub(
+              r'export function isDyadProEnabled\(settings: UserSettings\): boolean \{',
+              'export function isDyadProEnabled(_settings: UserSettings): boolean {',
+              content
+          )
+          content = re.sub(
+              r'return settings\.enableDyadPro === true && hasDyadProKey\(settings\);',
+              'return true; // Patched: unlimited Pro features',
+              content
+          )
+          content = re.sub(
+              r'export function hasDyadProKey\(settings: UserSettings\): boolean \{',
+              'export function hasDyadProKey(_settings: UserSettings): boolean {',
+              content
+          )
+          # Original: return !!settings.providerSettings?.auto?.apiKey?.value;
+          content = re.sub(
+              r'return !!settings\.providerSettings\?\.auto\?\.apiKey\?\.value;',
+              'return true; // Patched: always has Pro key',
+              content
+          )
+          with open('src/lib/schemas.ts', 'w') as f:
+              f.write(content)
+          print("✅ isDyadProEnabled & hasDyadProKey → always return true")
+
+          # === PATCH 3: Enable Dyad Pro by default in DEFAULT_SETTINGS ===
+          with open('src/main/settings.ts') as f:
+              content = f.read()
+          content = content.replace(
+              'experiments: {},',
+              'experiments: {},\n  enableDyadPro: true,'
+          )
+          # Add enableProWebSearch after enableProSmartFilesContextMode if not already there
+          if 'enableProWebSearch: true' not in content:
+              content = content.replace(
+                  'enableProSmartFilesContextMode: true,',
+                  'enableProSmartFilesContextMode: true,\n  enableProWebSearch: true,'
+              )
+          with open('src/main/settings.ts', 'w') as f:
+              f.write(content)
+          print("✅ enableDyadPro, enableProWebSearch = true in defaults")
+
+          # === PATCH 4: Patch readSettings() to inject dummy API key ===
+          # This is the KEY fix - ensures every file that reads providerSettings.auto.apiKey.value finds one
+          with open('src/main/settings.ts') as f:
+              content = f.read()
+
+          # Find the readSettings function and add API key injection after it reads settings
+          # The function has 3 return paths - we'll add a post-processing step
+          patch_code = '''
+          function _ensureProApiKey(s: UserSettings): UserSettings {
+            if (s.enableDyadPro && !s.providerSettings?.auto?.apiKey?.value) {
+              s.providerSettings = s.providerSettings || {};
+              s.providerSettings.auto = s.providerSettings.auto || {};
+              s.providerSettings.auto.apiKey = s.providerSettings.auto.apiKey || {};
+              s.providerSettings.auto.apiKey.value = "sk-patcher-dummy";
+            }
+            return s;
+          }
+          '''
+
+          # Replace readSettings function to use _ensureProApiKey
+          old_func = '''export function readSettings(): UserSettings {
+            try {
+              const filePath = getSettingsFilePath();
+              if (!fs.existsSync(filePath)) {
+                fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+                return DEFAULT_SETTINGS;
+              }
+              return readExistingSettingsFile(filePath).settings;
+            } catch (error) {
+              logger.error("Error reading settings:", error);
+              return DEFAULT_SETTINGS;
+            }
+          }'''
+
+          new_func = '''export function readSettings(): UserSettings {
+            try {
+              const filePath = getSettingsFilePath();
+              if (!fs.existsSync(filePath)) {
+                fs.writeFileSync(filePath, JSON.stringify(DEFAULT_SETTINGS, null, 2));
+                return _ensureProApiKey(DEFAULT_SETTINGS);
+              }
+              return _ensureProApiKey(readExistingSettingsFile(filePath).settings);
+            } catch (error) {
+              logger.error("Error reading settings:", error);
+              return _ensureProApiKey(DEFAULT_SETTINGS);
+            }
+          }'''
+
+          content = content.replace(old_func, patch_code + '\n' + new_func)
+          with open('src/main/settings.ts', 'w') as f:
+              f.write(content)
+          print("✅ readSettings() patched with dummy API key injector")
+
+          # === PATCH 5: TitleBar.tsx - Stop checking for API key to show Pro button ===
+          with open('src/app/TitleBar.tsx') as f:
+              content = f.read()
+          content = content.replace(
+              "const isDyadPro = !!settings?.providerSettings?.auto?.apiKey?.value;",
+              "const isDyadPro = Boolean(settings?.enableDyadPro);"
+          )
+          with open('src/app/TitleBar.tsx', 'w') as f:
+              f.write(content)
+          print("✅ TitleBar.tsx: isDyadPro now checks enableDyadPro instead of apiKey")
+
+          # === PATCH 6: HelpDialog.tsx - Stop checking for API key ===
+          with open('src/components/HelpDialog.tsx') as f:
+              content = f.read()
+          content = content.replace(
+              "const isDyadProUser = settings?.providerSettings?.[\"auto\"]?.apiKey?.value;",
+              "const isDyadProUser = settings?.enableDyadPro;"
+          )
+          with open('src/components/HelpDialog.tsx', 'w') as f:
+              f.write(content)
+          print("✅ HelpDialog.tsx: isDyadProUser now checks enableDyadPro")
+
+          # === PATCH 7: explore_code_subagent.ts - Remove API key check ===
+          with open('src/pro/main/ipc/handlers/local_agent/tools/explore_code_subagent.ts') as f:
+              content = f.read()
+          content = content.replace(
+              'if (!settings.enableDyadPro || !settings.providerSettings?.auto?.apiKey) {',
+              'if (!settings.enableDyadPro) {'
+          )
+          with open('src/pro/main/ipc/handlers/local_agent/tools/explore_code_subagent.ts', 'w') as f:
+              f.write(content)
+          print("✅ explore_code_subagent.ts: Removed API key check from assertDyadValueAvailable")
+
+          # === PATCH 8: pro_handlers.ts - Add dummy API key fallback ===
+          with open('src/ipc/handlers/pro_handlers.ts') as f:
+              content = f.read()
+          content = content.replace(
+              "return readSettings().providerSettings?.auto?.apiKey?.value;",
+              "return readSettings().providerSettings?.auto?.apiKey?.value || \"sk-patcher-dummy\";"
+          )
+          with open('src/ipc/handlers/pro_handlers.ts', 'w') as f:
+              f.write(content)
+          print("✅ pro_handlers.ts: Added fallback dummy API key in getSubscriptionStatusApiKey")
+
+          print("\n=== All patches applied successfully! ===")
+          PYEOF
+
+      - name: Build Dyad (Intel x64)
+        working-directory: ./dyad-src
+        run: npm run make -- --arch=x64
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          E2E_TEST_BUILD: "true"
+
+      - name: List output files
+        working-directory: ./dyad-src
+        run: find out/ -type f -name "*.zip" 2>/dev/null
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dyad-full-pro-intel
+          path: dyad-src/out/make/**/*.zip
+          if-no-files-found: error
