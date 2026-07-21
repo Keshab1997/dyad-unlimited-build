@@ -35,7 +35,7 @@ jobs:
           echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
           chmod +x node_modules/dugite/git/bin/scalar
 
-      - name: Apply all patches (Unlimited Agent + Full Pro)
+      - name: Apply all patches (Unlimited Agent + Full Pro + Rename to Keshab)
         working-directory: ./dyad-src
         run: |
           python3 << 'PYEOF'
@@ -67,7 +67,6 @@ jobs:
               'export function hasDyadProKey(_settings: UserSettings): boolean {',
               content
           )
-          # Original: return !!settings.providerSettings?.auto?.apiKey?.value;
           content = re.sub(
               r'return !!settings\.providerSettings\?\.auto\?\.apiKey\?\.value;',
               'return true; // Patched: always has Pro key',
@@ -84,7 +83,6 @@ jobs:
               'experiments: {},',
               'experiments: {},\n  enableDyadPro: true,'
           )
-          # Add enableProWebSearch after enableProSmartFilesContextMode if not already there
           if 'enableProWebSearch: true' not in content:
               content = content.replace(
                   'enableProSmartFilesContextMode: true,',
@@ -95,12 +93,9 @@ jobs:
           print("✅ enableDyadPro, enableProWebSearch = true in defaults")
 
           # === PATCH 4: Patch readSettings() to inject dummy API key ===
-          # This is the KEY fix - ensures every file that reads providerSettings.auto.apiKey.value finds one
           with open('src/main/settings.ts') as f:
               content = f.read()
 
-          # Find the readSettings function and add API key injection after it reads settings
-          # The function has 3 return paths - we'll add a post-processing step
           patch_code = '''
           function _ensureProApiKey(s: UserSettings): UserSettings {
             if (s.enableDyadPro && !s.providerSettings?.auto?.apiKey?.value) {
@@ -113,7 +108,6 @@ jobs:
           }
           '''
 
-          # Replace readSettings function to use _ensureProApiKey
           old_func = '''export function readSettings(): UserSettings {
             try {
               const filePath = getSettingsFilePath();
@@ -190,6 +184,59 @@ jobs:
           with open('src/ipc/handlers/pro_handlers.ts', 'w') as f:
               f.write(content)
           print("✅ pro_handlers.ts: Added fallback dummy API key in getSubscriptionStatusApiKey")
+
+          # === PATCH 9: Rename App to "Keshab" ===
+          # Change productName in package.json (controls macOS menu bar / dock name)
+          with open('package.json') as f:
+              content = f.read()
+          content = content.replace('"productName": "dyad"', '"productName": "Keshab"')
+          with open('package.json', 'w') as f:
+              f.write(content)
+          print("✅ package.json: productName → Keshab")
+
+          # Change protocol name in forge.config.ts
+          with open('forge.config.ts') as f:
+              content = f.read()
+          content = content.replace('name: "Dyad"', 'name: "Keshab"')
+          with open('forge.config.ts', 'w') as f:
+              f.write(content)
+          print("✅ forge.config.ts: protocol name → Keshab")
+
+          # Change all display "Dyad" strings in src/ (safe replacements only)
+          # These are user-visible strings, NOT URLs/file paths/internal identifiers
+          import glob
+          src_files = glob.glob('src/**/*.ts', recursive=True) + glob.glob('src/**/*.tsx', recursive=True)
+          
+          # Skip files that are test snapshots or fixtures
+          skip_patterns = ['__snapshots__', '.test.', '.spec.', 'fixtures']
+          
+          for filepath in src_files:
+              if any(p in filepath for p in skip_patterns):
+                  continue
+              
+              with open(filepath) as f:
+                  content = f.read()
+              
+              original = content
+              
+              # Replace "Dyad" → "Keshab" ONLY in display strings (quoted strings)
+              # We use a safe approach: replace '"Dyad"' (with quotes) → '"Keshab"'
+              # This avoids changing URLs like "https://api.dyad.sh" or "dyad.sh"
+              content = content.replace('"Dyad"', '"Keshab"')
+              
+              # Replace 'Dyad' (as string literal with single quotes)
+              content = content.replace("'Dyad'", "'Keshab'")
+              
+              # Replace `Dyad` (backtick strings in template literals)
+              content = content.replace('`Dyad`', '`Keshab`')
+              
+              if content != original:
+                  with open(filepath, 'w') as f:
+                      f.write(content)
+                  relpath = filepath.replace('src/', 'src/')
+                  print(f"  ✏️  {relpath}")
+          
+          print("✅ All display 'Dyad' strings renamed to 'Keshab' in src/")
 
           print("\n=== All patches applied successfully! ===")
           PYEOF
