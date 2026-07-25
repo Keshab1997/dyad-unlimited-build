@@ -23,17 +23,15 @@ jobs:
         working-directory: ./dyad-src
         run: npm install --ignore-scripts
 
-      - name: Pre-create binary dirs
+      - name: Install native binaries (ripgrep + git)
         working-directory: ./dyad-src
         run: |
-          mkdir -p node_modules/@vscode/ripgrep/bin
-          echo '#!/bin/bash' > node_modules/@vscode/ripgrep/bin/rg
-          chmod +x node_modules/@vscode/ripgrep/bin/rg
-          mkdir -p node_modules/dugite/git/bin
-          echo '#!/bin/bash' > node_modules/dugite/git/bin/git
-          chmod +x node_modules/dugite/git/bin/git
-          echo '#!/bin/bash' > node_modules/dugite/git/bin/scalar
-          chmod +x node_modules/dugite/git/bin/scalar
+          echo "Installing ripgrep binary..."
+          node node_modules/@vscode/ripgrep/lib/postinstall.js
+          echo "✅ ripgrep installed"
+          echo "Installing git binary (dugite)..."
+          node node_modules/dugite/script/download-git.js
+          echo "✅ dugite git installed"
 
       - name: Apply all patches (Unlimited Agent + Full Pro)
         working-directory: ./dyad-src
