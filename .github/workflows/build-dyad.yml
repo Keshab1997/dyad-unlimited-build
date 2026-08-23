@@ -2,6 +2,14 @@ name: Build Dyad (Full Pro + Unlimited Agent) [Intel x64]
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (optional; defaults to build-<run number>)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -196,9 +204,42 @@ jobs:
         working-directory: ./dyad-src
         run: find out/ -type f -name "*.zip" 2>/dev/null
 
-      - name: Upload artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: dyad-full-pro-intel
           path: dyad-src/out/make/**/*.zip
           if-no-files-found: error
+
+      - name: Create GitHub Release and upload app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG_INPUT: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_TAG="${RELEASE_TAG_INPUT:-build-${GITHUB_RUN_NUMBER}}"
+          RELEASE_TITLE="Dyad Full Pro + Unlimited Agent — ${RELEASE_TAG}"
+          assets=()
+          while IFS= read -r file; do
+            assets+=("$file")
+          done < <(find dyad-src/out/make -type f -name '*.zip' -print)
+
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No .zip build files found."
+            exit 1
+          fi
+
+          echo "Release: ${RELEASE_TAG}"
+          printf 'Asset: %s\n' "${assets[@]}"
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            echo "Release already exists; replacing matching assets."
+            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" \\
+              "${assets[@]}" \\
+              --target "${GITHUB_SHA}" \\
+              --title "${RELEASE_TITLE}" \\
+              --notes "Automated build from ${GITHUB_REPOSITORY} at ${GITHUB_SHA}."
+          fi
