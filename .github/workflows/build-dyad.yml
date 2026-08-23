@@ -35,6 +35,14 @@ jobs:
         working-directory: ./dyad-src
         run: npm install --ignore-scripts --no-save @electron-forge/maker-dmg@7.11.1
 
+      - name: Rebuild DMG native dependency
+        working-directory: ./dyad-src
+        run: |
+          # npm install intentionally skips lifecycle scripts, so macos-alias's
+          # volume.node must be compiled explicitly for the GitHub runner.
+          ./node_modules/.bin/node-gyp rebuild --directory node_modules/macos-alias
+          test -f node_modules/macos-alias/build/Release/volume.node
+
       - name: Install native binaries (ripgrep + git)
         working-directory: ./dyad-src
         env:
