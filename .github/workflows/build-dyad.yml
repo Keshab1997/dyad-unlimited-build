@@ -33,6 +33,10 @@ jobs:
 
       - name: Install native binaries (ripgrep + git)
         working-directory: ./dyad-src
+        env:
+          # @vscode/ripgrep uses this token for authenticated GitHub API requests.
+          # Without it, GitHub-hosted runners can hit the anonymous API rate limit (403).
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "Installing ripgrep binary..."
           npm_config_arch=x64 node node_modules/@vscode/ripgrep/lib/postinstall.js
