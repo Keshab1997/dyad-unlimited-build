@@ -31,6 +31,10 @@ jobs:
         working-directory: ./dyad-src
         run: npm install --ignore-scripts
 
+      - name: Install macOS DMG maker
+        working-directory: ./dyad-src
+        run: npm install --ignore-scripts --no-save @electron-forge/maker-dmg@7.11.1
+
       - name: Install native binaries (ripgrep + git)
         working-directory: ./dyad-src
         env:
@@ -50,6 +54,21 @@ jobs:
         run: |
           python3 << 'PYEOF'
           import re
+
+          # === PATCH 0: Build a macOS DMG instead of a ZIP ===
+          with open('forge.config.ts') as f:
+              content = f.read()
+          content = content.replace(
+              'import { MakerZIP } from "@electron-forge/maker-zip";\n',
+              'import { MakerDMG } from "@electron-forge/maker-dmg";\n'
+          )
+          content = content.replace(
+              '    new MakerZIP({}, ["darwin"]),',
+              '    new MakerDMG({}, ["darwin"]),'
+          )
+          with open('forge.config.ts', 'w') as f:
+              f.write(content)
+          print("✅ macOS maker changed from ZIP to DMG")
 
           # === PATCH 1: Unlimited Agent Quota ===
           with open('src/lib/free_agent_quota_limit.ts') as f:
@@ -206,13 +225,13 @@ jobs:
 
       - name: List output files
         working-directory: ./dyad-src
-        run: find out/ -type f -name "*.zip" 2>/dev/null
+        run: find out/ -type f -name "*.dmg" 2>/dev/null
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dyad-full-pro-intel
-          path: dyad-src/out/make/**/*.zip
+          name: dyad-full-pro-intel-dmg
+          path: dyad-src/out/make/**/*.dmg
           if-no-files-found: error
 
       - name: Create GitHub Release and upload app
@@ -227,10 +246,10 @@ jobs:
           assets=()
           while IFS= read -r file; do
             assets+=("$file")
-          done < <(find dyad-src/out/make -type f -name '*.zip' -print)
+          done < <(find dyad-src/out/make -type f -name '*.dmg' -print)
 
           if [ "${#assets[@]}" -eq 0 ]; then
-            echo "No .zip build files found."
+            echo "No .dmg build files found."
             exit 1
           fi
 
