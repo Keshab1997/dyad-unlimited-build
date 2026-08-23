@@ -241,9 +241,9 @@ jobs:
             echo "Release already exists; replacing matching assets."
             gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
           else
-            gh release create "${RELEASE_TAG}" \\
-              "${assets[@]}" \\
-              --target "${GITHUB_SHA}" \\
-              --title "${RELEASE_TITLE}" \\
+            gh release create "${RELEASE_TAG}" \
+              "${assets[@]}" \
+              --target "${GITHUB_SHA}" \
+              --title "${RELEASE_TITLE}" \
               --notes "Automated build from ${GITHUB_REPOSITORY} at ${GITHUB_SHA}."
           fi
